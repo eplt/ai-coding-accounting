@@ -407,17 +407,25 @@
                         <span id="configText">Loading config...</span>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="text" id="scmPathInput" placeholder="~/SCM or /path/to/your/code" 
-                               style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 300px;">
+                        <input type="text" id="scmPathInput" placeholder="Paste folder path here (Cmd+Option+C in Finder)" 
+                               style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 350px;"
+                               ondrop="handlePathDrop(event)" ondragover="event.preventDefault()">
                         <button onclick="updateScmPath()" style="padding: 6px 16px; background: #007aff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                            Update Path
+                            Set Path
                         </button>
-                        <button onclick="browseFolder()" style="padding: 6px 16px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                            Browse...
+                        <button onclick="showPathHelp()" style="padding: 6px 12px; background: #999; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;" title="How to get folder path">
+                            ?
                         </button>
                     </div>
                 </div>
-                <input type="file" id="folderPicker" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelection(event)">
+                <div id="pathHelp" style="display: none; margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 4px; font-size: 11px;">
+                    <strong>How to get folder path:</strong><br>
+                    1. Open Finder and navigate to the folder you want to scan<br>
+                    2. Right-click the folder and hold <strong>Option (⌥)</strong> key<br>
+                    3. Click "Copy [folder] as Pathname"<br>
+                    4. Paste here with <strong>Cmd+V</strong><br>
+                    <em>Or: Select folder in Finder, press Cmd+Option+C, then paste here</em>
+                </div>
             </div>
             <div id="detectionResults" style="margin-bottom: 20px;"></div>
             <div class="project-list" id="projectList"></div>
@@ -497,78 +505,39 @@
             }
         }
         
-        function browseFolder() {
-            // Note: Browser security prevents direct folder selection
-            // This will open a file picker, user needs to select a file in the folder
-            // We'll extract the directory from the selected file
-            const folderPicker = document.getElementById('folderPicker');
-            if (folderPicker) {
-                folderPicker.click();
+        function showPathHelp() {
+            const helpDiv = document.getElementById('pathHelp');
+            if (helpDiv.style.display === 'none') {
+                helpDiv.style.display = 'block';
+            } else {
+                helpDiv.style.display = 'none';
             }
         }
         
-        function handleFolderSelection(event) {
-            const files = event.target.files;
-            if (files.length > 0) {
-                const firstFile = files[0];
-                let folderPath = null;
-                const currentPath = document.getElementById('scmPathInput').value || '~/SCM';
-                
-                // Try different methods to get the folder path
-                if (firstFile.path) {
-                    // Electron/Node.js environment - direct path access
-                    folderPath = firstFile.path.substring(0, firstFile.path.lastIndexOf('/'));
-                } else if (firstFile.webkitRelativePath) {
-                    // Browser environment - extract folder name from relative path
-                    const relativePath = firstFile.webkitRelativePath;
-                    const firstSlash = relativePath.indexOf('/');
-                    if (firstSlash > 0) {
-                        const folderName = relativePath.substring(0, firstSlash);
-                        // Try to construct path from current path
-                        let suggestedPath = currentPath;
-                        if (currentPath.endsWith('/')) {
-                            suggestedPath = currentPath + folderName;
-                        } else {
-                            // Try to find the folder in the current path
-                            const pathParts = currentPath.split('/');
-                            const lastPart = pathParts[pathParts.length - 1];
-                            if (lastPart === folderName) {
-                                suggestedPath = currentPath;
-                            } else {
-                                suggestedPath = currentPath + '/' + folderName;
-                            }
-                        }
-                        
-                        // Prompt user with better context
-                        const path = prompt(
-                            `Selected folder: "${folderName}"\n\nPlease enter the full path to this folder:`,
-                            suggestedPath
-                        );
-                        if (path && path.trim()) {
-                            folderPath = path.trim();
+        function handlePathDrop(event) {
+            // Handle drag and drop of folder from Finder
+            // Note: This may not work in all browsers due to security restrictions
+            event.preventDefault();
+            const items = event.dataTransfer.items;
+            if (items && items.length > 0) {
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.kind === 'file') {
+                        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                        if (entry && entry.isDirectory) {
+                            // Got a directory - but we still can't get the full path
+                            // Show message to user
+                            showAlert('Drag and drop detected folder: ' + entry.name + '. Please paste the full path using Cmd+Option+C from Finder.', 'info');
+                            return;
                         }
                     }
                 }
-                
-                // If we still don't have a path, prompt the user with current path as default
-                if (!folderPath) {
-                    const path = prompt(
-                        'Please enter the full path to the folder you selected:',
-                        currentPath
-                    );
-                    if (path && path.trim()) {
-                        folderPath = path.trim();
-                    }
-                }
-                
-                if (folderPath) {
-                    document.getElementById('scmPathInput').value = folderPath;
-                    // Automatically update the path
-                    updateScmPath();
-                }
-                
-                // Reset the file input so the same folder can be selected again
-                event.target.value = '';
+            }
+            // If we got text (like a path), use it
+            const text = event.dataTransfer.getData('text');
+            if (text && text.trim()) {
+                document.getElementById('scmPathInput').value = text.trim();
+                updateScmPath();
             }
         }
         

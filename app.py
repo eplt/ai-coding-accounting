@@ -276,6 +276,17 @@ def create_project():
     db.session.commit()
     return jsonify({'id': project.id, 'name': project.name}), 201
 
+@app.route('/api/projects/<int:project_id>', methods=['GET'])
+def get_project(project_id):
+    """Get a single project"""
+    project = Project.query.get_or_404(project_id)
+    return jsonify({
+        'id': project.id,
+        'name': project.name,
+        'description': project.description,
+        'created_at': format_datetime_local(project.created_at)
+    })
+
 @app.route('/api/projects/<int:project_id>', methods=['PUT'])
 def update_project(project_id):
     """Update a project"""
@@ -608,15 +619,35 @@ def update_scm_path():
     global current_scm_path, project_detector
     
     try:
+        if not request.is_json:
+            print(f"DEBUG: Request is not JSON. Content-Type: {request.content_type}")
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+        
         data = request.json
+        if not data:
+            print("DEBUG: Request body is empty")
+            return jsonify({'error': 'Request body is required'}), 400
+        
         new_path = data.get('scm_path', '').strip()
+        print(f"DEBUG: Received SCM path: '{new_path}'")
         
         if not new_path:
             return jsonify({'error': 'SCM path is required'}), 400
         
+        # Expand user home directory (~) if present
+        original_path = new_path
+        if new_path.startswith('~'):
+            new_path = os.path.expanduser(new_path)
+            print(f"DEBUG: Expanded path from '{original_path}' to '{new_path}'")
+        
         # Validate path exists
         if not os.path.exists(new_path):
-            return jsonify({'error': f'Path does not exist: {new_path}'}), 400
+            print(f"DEBUG: Path does not exist: '{new_path}'")
+            return jsonify({
+                'error': f'Path does not exist: {new_path}',
+                'received_path': original_path,
+                'expanded_path': new_path
+            }), 400
         
         if not os.path.isdir(new_path):
             return jsonify({'error': f'Path is not a directory: {new_path}'}), 400
