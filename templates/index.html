@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Coding Usage Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #007aff;
+            margin-bottom: 10px;
+        }
+        
+        .upload-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .upload-form {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        .file-input-wrapper {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .file-input-wrapper label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #007aff;
+            border-radius: 8px;
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+        
+        .gap-input {
+            width: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #0051d5;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .stat-card .value.cost {
+            color: #007aff;
+        }
+        
+        .projects-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-header h2 {
+            color: #1d1d1f;
+        }
+        
+        .project-list {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .project-item {
+            padding: 20px;
+            border: 2px solid #e5e5e7;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.2s;
+        }
+        
+        .project-item:hover {
+            border-color: #007aff;
+        }
+        
+        .project-info h3 {
+            margin-bottom: 5px;
+        }
+        
+        .project-info p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .project-stats {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        
+        .project-stat {
+            text-align: right;
+        }
+        
+        .project-stat .label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .project-stat .value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .sessions-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .sessions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .sessions-table th,
+        .sessions-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e5e7;
+        }
+        
+        .sessions-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+        
+        .sessions-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .project-select {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .btn-secondary {
+            background: #666;
+        }
+        
+        .btn-secondary:hover {
+            background: #555;
+        }
+        
+        .alert {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert.active {
+            display: block;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 AI Coding Usage Tracker</h1>
+            <p>Track and analyze your AI coding tool usage costs by project</p>
+        </header>
+        
+        <div class="alert" id="alert"></div>
+        
+        <div class="upload-section">
+            <h2>Upload CSV File</h2>
+            <form class="upload-form" id="uploadForm">
+                <div class="file-input-wrapper">
+                    <label for="csvFile">Select CSV File</label>
+                    <input type="file" id="csvFile" name="file" accept=".csv" required>
+                </div>
+                <div class="file-input-wrapper">
+                    <label for="gapHours">Session Gap (hours)</label>
+                    <input type="number" id="gapHours" name="gap_hours" value="2" min="1" max="24" class="gap-input" required>
+                </div>
+                <button type="submit" id="uploadBtn">Upload & Process</button>
+            </form>
+        </div>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <h3>Total Cost</h3>
+                <div class="value cost" id="totalCost">$0.00</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Sessions</h3>
+                <div class="value" id="totalSessions">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Events</h3>
+                <div class="value" id="totalEvents">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Tokens</h3>
+                <div class="value" id="totalTokens">0</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <h2>Cost by Project</h2>
+            <div class="chart-wrapper">
+                <canvas id="costChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="projects-section">
+            <div class="section-header">
+                <h2>Projects</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="detectProjects()" id="detectBtn" style="background: #34c759;">🔍 Auto-Detect Projects</button>
+                    <button onclick="showCreateProjectModal()">+ New Project</button>
+                </div>
+            </div>
+            <div id="configInfo" style="margin-bottom: 10px; padding: 15px; background: #f8f9fa; border-radius: 6px; font-size: 12px; color: #666;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <span id="configText">Loading config...</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="scmPathInput" placeholder="~/SCM or /path/to/your/code" 
+                               style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 300px;">
+                        <button onclick="updateScmPath()" style="padding: 6px 16px; background: #007aff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                            Update Path
+                        </button>
+                        <button onclick="browseFolder()" style="padding: 6px 16px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                            Browse...
+                        </button>
+                    </div>
+                </div>
+                <input type="file" id="folderPicker" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelection(event)">
+            </div>
+            <div id="detectionResults" style="margin-bottom: 20px;"></div>
+            <div class="project-list" id="projectList"></div>
+        </div>
+        
+        <div class="sessions-section">
+            <h2>Coding Sessions</h2>
+            <table class="sessions-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Duration</th>
+                        <th>Cost</th>
+                        <th>Tokens</th>
+                        <th>Events</th>
+                        <th>Models</th>
+                        <th>Project</th>
+                    </tr>
+                </thead>
+                <tbody id="sessionsTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Create/Edit Project Modal -->
+    <div class="modal" id="createProjectModal">
+        <div class="modal-content">
+            <h3 id="projectModalTitle">Create New Project</h3>
+            <form id="createProjectForm">
+                <div class="form-group">
+                    <label for="projectName">Project Name</label>
+                    <input type="text" id="projectName" required>
+                </div>
+                <div class="form-group">
+                    <label for="projectDescription">Description (optional)</label>
+                    <textarea id="projectDescription" rows="3"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="hideCreateProjectModal()">Cancel</button>
+                    <button type="submit" id="projectSubmitBtn">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        let costChart = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadConfig();
+            loadDashboard();
+            setupEventListeners();
+        });
+        
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                const configText = document.getElementById('configText');
+                const scmPathInput = document.getElementById('scmPathInput');
+                
+                if (scmPathInput) {
+                    scmPathInput.value = config.scm_path;
+                }
+                
+                if (config.scm_path_exists) {
+                    configText.innerHTML = `📁 Scanning: <strong>${config.scm_path}</strong>`;
+                    configText.style.color = '#666';
+                } else {
+                    configText.innerHTML = `⚠️ SCM path not found: <strong>${config.scm_path}</strong> - Project detection may not work`;
+                    configText.style.color = '#ff3b30';
+                }
+            } catch (error) {
+                console.error('Error loading config:', error);
+            }
+        }
+        
+        function browseFolder() {
+            // Note: Browser security prevents direct folder selection
+            // This will open a file picker, user needs to select a file in the folder
+            // We'll extract the directory from the selected file
+            const folderPicker = document.getElementById('folderPicker');
+            if (folderPicker) {
+                folderPicker.click();
+            }
+        }
+        
+        function handleFolderSelection(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                const firstFile = files[0];
+                let folderPath = null;
+                const currentPath = document.getElementById('scmPathInput').value || '~/SCM';
+                
+                // Try different methods to get the folder path
+                if (firstFile.path) {
+                    // Electron/Node.js environment - direct path access
+                    folderPath = firstFile.path.substring(0, firstFile.path.lastIndexOf('/'));
+                } else if (firstFile.webkitRelativePath) {
+                    // Browser environment - extract folder name from relative path
+                    const relativePath = firstFile.webkitRelativePath;
+                    const firstSlash = relativePath.indexOf('/');
+                    if (firstSlash > 0) {
+                        const folderName = relativePath.substring(0, firstSlash);
+                        // Try to construct path from current path
+                        let suggestedPath = currentPath;
+                        if (currentPath.endsWith('/')) {
+                            suggestedPath = currentPath + folderName;
+                        } else {
+                            // Try to find the folder in the current path
+                            const pathParts = currentPath.split('/');
+                            const lastPart = pathParts[pathParts.length - 1];
+                            if (lastPart === folderName) {
+                                suggestedPath = currentPath;
+                            } else {
+                                suggestedPath = currentPath + '/' + folderName;
+                            }
+                        }
+                        
+                        // Prompt user with better context
+                        const path = prompt(
+                            `Selected folder: "${folderName}"\n\nPlease enter the full path to this folder:`,
+                            suggestedPath
+                        );
+                        if (path && path.trim()) {
+                            folderPath = path.trim();
+                        }
+                    }
+                }
+                
+                // If we still don't have a path, prompt the user with current path as default
+                if (!folderPath) {
+                    const path = prompt(
+                        'Please enter the full path to the folder you selected:',
+                        currentPath
+                    );
+                    if (path && path.trim()) {
+                        folderPath = path.trim();
+                    }
+                }
+                
+                if (folderPath) {
+                    document.getElementById('scmPathInput').value = folderPath;
+                    // Automatically update the path
+                    updateScmPath();
+                }
+                
+                // Reset the file input so the same folder can be selected again
+                event.target.value = '';
+            }
+        }
+        
+        async function updateScmPath() {
+            const scmPathInput = document.getElementById('scmPathInput');
+            if (!scmPathInput) return;
+            
+            const newPath = scmPathInput.value.trim();
+            
+            if (!newPath) {
+                showAlert('Please enter a path', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/config/scm_path', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({scm_path: newPath})
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(`SCM path updated to: ${newPath}`, 'success');
+                    loadConfig();
+                    // Clear detection results if any
+                    const detectionResults = document.getElementById('detectionResults');
+                    if (detectionResults) {
+                        detectionResults.innerHTML = '';
+                    }
+                } else {
+                    showAlert(data.error || 'Failed to update path', 'error');
+                }
+            } catch (error) {
+                showAlert('Error updating path: ' + error.message, 'error');
+            }
+        }
+        
+        function setupEventListeners() {
+            document.getElementById('uploadForm').addEventListener('submit', handleUpload);
+            document.getElementById('createProjectForm').addEventListener('submit', handleCreateProject);
+        }
+        
+        async function handleUpload(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            const fileInput = document.getElementById('csvFile');
+            const gapHours = document.getElementById('gapHours').value;
+            
+            if (!fileInput.files[0]) {
+                showAlert('Please select a file', 'error');
+                return;
+            }
+            
+            formData.append('file', fileInput.files[0]);
+            formData.append('gap_hours', gapHours);
+            
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Processing...';
+            
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(
+                        `Success! Added ${data.new_events} new events. ${data.duplicates} duplicates skipped. Created ${data.sessions_created} sessions.`,
+                        'success'
+                    );
+                    fileInput.value = '';
+                    loadDashboard();
+                } else {
+                    showAlert(data.error || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                showAlert('Error uploading file: ' + error.message, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload & Process';
+            }
+        }
+        
+        async function loadDashboard() {
+            try {
+                const [statsResponse, projectsResponse, sessionsResponse] = await Promise.all([
+                    fetch('/api/dashboard/stats'),
+                    fetch('/api/projects'),
+                    fetch('/api/sessions')
+                ]);
+                
+                const stats = await statsResponse.json();
+                const projects = await projectsResponse.json();
+                const sessions = await sessionsResponse.json();
+                
+                updateStats(stats);
+                updateProjects(projects, stats);
+                updateSessions(sessions, projects);
+                updateChart(stats);
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+        
+        function updateStats(stats) {
+            document.getElementById('totalCost').textContent = `$${stats.overall.total_cost.toFixed(2)}`;
+            document.getElementById('totalSessions').textContent = stats.overall.total_sessions;
+            document.getElementById('totalEvents').textContent = stats.overall.total_events;
+            document.getElementById('totalTokens').textContent = stats.overall.total_tokens.toLocaleString();
+        }
+        
+        function updateProjects(projects, stats) {
+            const projectList = document.getElementById('projectList');
+            projectList.innerHTML = '';
+            
+            // Add unassigned
+            if (stats.unassigned.cost > 0 || stats.unassigned.sessions > 0) {
+                const unassignedItem = createProjectItem({
+                    id: null,
+                    name: 'Unassigned',
+                    cost: stats.unassigned.cost,
+                    tokens: stats.unassigned.tokens,
+                    sessions: stats.unassigned.sessions,
+                    event_count: stats.unassigned.event_count
+                }, false);
+                projectList.appendChild(unassignedItem);
+            }
+            
+            // Add projects (only those with sessions/events)
+            stats.projects
+                .filter(p => p.sessions > 0 || p.event_count > 0)  // Filter empty projects
+                .forEach(project => {
+                    const item = createProjectItem(project, true);
+                    projectList.appendChild(item);
+                });
+        }
+        
+        function createProjectItem(project, canEdit) {
+            const div = document.createElement('div');
+            div.className = 'project-item';
+            div.id = `project-${project.id || 'unassigned'}`;
+            
+            const editControls = canEdit ? `
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="editProject(${project.id})" style="padding: 4px 8px; background: #007aff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                        Edit
+                    </button>
+                    <button onclick="deleteProject(${project.id})" style="padding: 4px 8px; background: #ff3b30; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                        Delete
+                    </button>
+                </div>
+            ` : '';
+            
+            div.innerHTML = `
+                <div class="project-info">
+                    <h3>${project.name}</h3>
+                    <p>${project.sessions} sessions • ${project.event_count} events</p>
+                </div>
+                <div style="display: flex; gap: 30px; align-items: center;">
+                    <div class="project-stats">
+                        <div class="project-stat">
+                            <div class="label">Cost</div>
+                            <div class="value">$${project.cost.toFixed(2)}</div>
+                        </div>
+                        <div class="project-stat">
+                            <div class="label">Tokens</div>
+                            <div class="value">${project.tokens.toLocaleString()}</div>
+                        </div>
+                    </div>
+                    ${editControls}
+                </div>
+            `;
+            return div;
+        }
+        
+        function updateSessions(sessions, projects) {
+            const tbody = document.getElementById('sessionsTableBody');
+            tbody.innerHTML = '';
+            
+            sessions.forEach(session => {
+                const tr = document.createElement('tr');
+                // Backend now sends dates in local timezone (naive ISO string)
+                // JavaScript's Date will interpret it as local time
+                const date = new Date(session.start_time);
+                const duration = session.duration_hours.toFixed(1);
+                
+                const projectSelect = document.createElement('select');
+                projectSelect.className = 'project-select';
+                projectSelect.innerHTML = '<option value="">Unassigned</option>';
+                projects.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = p.name;
+                    if (p.id === session.project_id) option.selected = true;
+                    projectSelect.appendChild(option);
+                });
+                projectSelect.addEventListener('change', (e) => assignSessionToProject(session.id, e.target.value));
+                
+                tr.innerHTML = `
+                    <td>${date.toLocaleString()}</td>
+                    <td>${duration}h</td>
+                    <td>$${session.total_cost.toFixed(2)}</td>
+                    <td>${session.total_tokens.toLocaleString()}</td>
+                    <td>${session.event_count}</td>
+                    <td><small style="color: #666;">${session.models || 'N/A'}</small></td>
+                    <td></td>
+                `;
+                tr.querySelector('td:nth-last-child(1)').appendChild(projectSelect);
+                tbody.appendChild(tr);
+            });
+        }
+        
+        async function assignSessionToProject(sessionId, projectId) {
+            try {
+                await fetch(`/api/sessions/${sessionId}/assign`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({project_id: projectId ? parseInt(projectId) : null})
+                });
+                loadDashboard();
+            } catch (error) {
+                showAlert('Error assigning session: ' + error.message, 'error');
+            }
+        }
+        
+        function updateChart(stats) {
+            const ctx = document.getElementById('costChart').getContext('2d');
+            
+            // Filter out empty projects (no sessions or events)
+            const nonEmptyProjects = stats.projects.filter(p => p.sessions > 0 || p.event_count > 0);
+            
+            // Build labels and costs, only including non-empty projects
+            const labels = [];
+            const costs = [];
+            
+            // Add unassigned if it has data
+            if (stats.unassigned.sessions > 0 || stats.unassigned.event_count > 0) {
+                labels.push('Unassigned');
+                costs.push(stats.unassigned.cost);
+            }
+            
+            // Add non-empty projects
+            nonEmptyProjects.forEach(p => {
+                labels.push(p.name);
+                costs.push(p.cost);
+            });
+            
+            if (costChart) {
+                costChart.destroy();
+            }
+            
+            if (labels.length === 0) {
+                // No data to show
+                return;
+            }
+            
+            costChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Cost ($)',
+                        data: costs,
+                        backgroundColor: '#007aff',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function showCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.add('active');
+            document.getElementById('createProjectForm').dataset.mode = 'create';
+            document.getElementById('createProjectForm').dataset.projectId = '';
+            document.getElementById('projectModalTitle').textContent = 'Create New Project';
+            document.getElementById('projectSubmitBtn').textContent = 'Create';
+        }
+        
+        function hideCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.remove('active');
+            document.getElementById('createProjectForm').reset();
+            document.getElementById('createProjectForm').dataset.mode = 'create';
+            document.getElementById('createProjectForm').dataset.projectId = '';
+        }
+        
+        async function editProject(projectId) {
+            try {
+                const response = await fetch(`/api/projects/${projectId}`);
+                if (!response.ok) throw new Error('Failed to load project');
+                
+                const project = await response.json();
+                
+                document.getElementById('projectName').value = project.name;
+                document.getElementById('projectDescription').value = project.description || '';
+                document.getElementById('createProjectForm').dataset.mode = 'edit';
+                document.getElementById('createProjectForm').dataset.projectId = projectId;
+                document.getElementById('projectModalTitle').textContent = 'Edit Project';
+                document.getElementById('projectSubmitBtn').textContent = 'Update';
+                
+                document.getElementById('createProjectModal').classList.add('active');
+            } catch (error) {
+                showAlert('Error loading project: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteProject(projectId) {
+            if (!confirm('Are you sure you want to delete this project? Sessions assigned to it will become unassigned.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/projects/${projectId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showAlert('Project deleted successfully', 'success');
+                    loadDashboard();
+                } else {
+                    const data = await response.json();
+                    showAlert(data.error || 'Failed to delete project', 'error');
+                }
+            } catch (error) {
+                showAlert('Error deleting project: ' + error.message, 'error');
+            }
+        }
+        
+        async function handleCreateProject(e) {
+            e.preventDefault();
+            const form = e.target;
+            const mode = form.dataset.mode || 'create';
+            const projectId = form.dataset.projectId;
+            const name = document.getElementById('projectName').value;
+            const description = document.getElementById('projectDescription').value;
+            
+            try {
+                let response;
+                if (mode === 'edit' && projectId) {
+                    // Update existing project
+                    response = await fetch(`/api/projects/${projectId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, description})
+                    });
+                } else {
+                    // Create new project
+                    response = await fetch('/api/projects', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, description})
+                    });
+                }
+                
+                if (response.ok) {
+                    hideCreateProjectModal();
+                    showAlert(`Project ${mode === 'edit' ? 'updated' : 'created'} successfully`, 'success');
+                    loadDashboard();
+                } else {
+                    const data = await response.json();
+                    showAlert(data.error || `Failed to ${mode === 'edit' ? 'update' : 'create'} project`, 'error');
+                }
+            } catch (error) {
+                showAlert(`Error ${mode === 'edit' ? 'updating' : 'creating'} project: ` + error.message, 'error');
+            }
+        }
+        
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${type} active`;
+            setTimeout(() => {
+                alert.classList.remove('active');
+            }, 5000);
+        }
+        
+        async function detectProjects() {
+            const detectBtn = document.getElementById('detectBtn');
+            const resultsDiv = document.getElementById('detectionResults');
+            
+            detectBtn.disabled = true;
+            detectBtn.textContent = '🔍 Detecting...';
+            resultsDiv.innerHTML = '<p style="color: #666;">Scanning git repositories and analyzing sessions...</p>';
+            
+            try {
+                // First, get suggestions
+                const detectResponse = await fetch('/api/detect/projects', {
+                    method: 'POST'
+                });
+                
+                const detectData = await detectResponse.json();
+                
+                if (!detectResponse.ok) {
+                    throw new Error(detectData.error || 'Detection failed');
+                }
+                
+                if (detectData.suggestions.length === 0) {
+                    resultsDiv.innerHTML = `
+                        <div class="alert success">
+                            <p>No unassigned sessions found, or no file modifications detected for unassigned sessions.</p>
+                            <p><small>Make sure you have git repositories in your configured base folder with files modified during your coding sessions.</small></p>
+                        </div>
+                    `;
+                    detectBtn.disabled = false;
+                    detectBtn.textContent = '🔍 Auto-Detect Projects';
+                    return;
+                }
+                
+                // Show suggestions
+                let html = `
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+                        <h3 style="margin-bottom: 15px;">Found ${detectData.matched_sessions} matching sessions</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid #ddd;">
+                                    <th style="padding: 8px; text-align: left;">Session Date</th>
+                                    <th style="padding: 8px; text-align: left;">Detected Project/Folder</th>
+                                    <th style="padding: 8px; text-align: left;">Confidence</th>
+                                    <th style="padding: 8px; text-align: left;">Files Modified</th>
+                                    <th style="padding: 8px; text-align: left;">Modified Files</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                for (const suggestion of detectData.suggestions) {
+                    // Get session date for display
+                    const sessions = await fetch('/api/sessions').then(r => r.json());
+                    const session = sessions.find(s => s.id === suggestion.session_id);
+                    // Backend now sends dates in local timezone
+                    const sessionDate = session ? new Date(session.start_time).toLocaleString() : 'Unknown';
+                    
+                    const confidenceColor = suggestion.confidence_score >= 20 ? '#34c759' : 
+                                          suggestion.confidence_score >= 10 ? '#ff9500' : '#ff3b30';
+                    
+                    html += `
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 8px;">${sessionDate}</td>
+                            <td style="padding: 8px;">
+                                <strong>${suggestion.project_name}</strong><br>
+                                <small style="color: #666;">${suggestion.project_path}</small>
+                            </td>
+                            <td style="padding: 8px;">
+                                <span style="color: ${confidenceColor}; font-weight: 600;">
+                                    ${suggestion.confidence_score} 
+                                    ${suggestion.confidence_score >= 20 ? '✓ High' : suggestion.confidence_score >= 10 ? '~ Medium' : '? Low'}
+                                </span>
+                            </td>
+                            <td style="padding: 8px;">
+                                ${suggestion.files_modified || 0} total<br>
+                                <small style="color: #666;">${suggestion.files_during_session || 0} during session</small>
+                            </td>
+                            <td style="padding: 8px; max-width: 300px;">
+                                ${suggestion.top_files && suggestion.top_files.length > 0 ? 
+                                    '<div style="font-size: 11px; color: #666;">' +
+                                    suggestion.top_files.slice(0, 3).map(f => 
+                                        `<div title="${f.path}">${f.path.split('/').pop()} <span style="color: #999;">(${f.time_diff_minutes}m)</span></div>`
+                                    ).join('') +
+                                    '</div>' 
+                                    : '<span style="color: #999;">-</span>'}
+                            </td>
+                        </tr>
+                    `;
+                }
+                
+                html += `
+                            </tbody>
+                        </table>
+                        <div style="margin-top: 15px;">
+                            <button id="applyHighBtn" style="background: #34c759; margin-right: 10px; padding: 10px 20px; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: 500;">
+                                ✓ Apply All Suggestions (High Confidence)
+                            </button>
+                            <button id="applyLowBtn" style="background: #ff9500; padding: 10px 20px; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: 500;">
+                                Apply All (Including Low Confidence)
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                resultsDiv.innerHTML = html;
+                
+                // Attach event listeners after HTML is inserted
+                document.getElementById('applyHighBtn').addEventListener('click', applyDetections);
+                document.getElementById('applyLowBtn').addEventListener('click', applyDetectionsLow);
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="alert error">
+                        Error detecting projects: ${error.message}
+                    </div>
+                `;
+            } finally {
+                detectBtn.disabled = false;
+                detectBtn.textContent = '🔍 Auto-Detect Projects';
+            }
+        }
+        
+        async function applyDetections() {
+            const btn = document.getElementById('applyHighBtn');
+            const originalText = btn.textContent;
+            
+            try {
+                btn.disabled = true;
+                btn.textContent = '⏳ Applying...';
+                
+                console.log('Applying detections with min_confidence: 10');
+                
+                const response = await fetch('/api/detect/apply', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({min_confidence: 10, auto_assign: true})
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch {
+                        errorData = {error: errorText || 'Unknown error'};
+                    }
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                showAlert(`Successfully assigned ${data.assigned_sessions} sessions to projects!`, 'success');
+                loadDashboard();
+                document.getElementById('detectionResults').innerHTML = '';
+                
+            } catch (error) {
+                console.error('Error applying detections:', error);
+                showAlert('Error applying detections: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+        
+        async function applyDetectionsLow() {
+            const btn = document.getElementById('applyLowBtn');
+            const originalText = btn.textContent;
+            
+            try {
+                btn.disabled = true;
+                btn.textContent = '⏳ Applying...';
+                
+                console.log('Applying detections with min_confidence: 5');
+                
+                const response = await fetch('/api/detect/apply', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({min_confidence: 5, auto_assign: true})
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch {
+                        errorData = {error: errorText || 'Unknown error'};
+                    }
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                showAlert(`Successfully assigned ${data.assigned_sessions} sessions to projects!`, 'success');
+                loadDashboard();
+                document.getElementById('detectionResults').innerHTML = '';
+                
+            } catch (error) {
+                console.error('Error applying detections:', error);
+                showAlert('Error applying detections: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+    </script>
+</body>
+</html>
