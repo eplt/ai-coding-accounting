@@ -2,173 +2,121 @@
 
 A web-based tool for tracking and analyzing AI coding tool usage costs (Cursor, GitHub Copilot, etc.) by project.
 
-**Note:** This tool was originally built for personal use on macOS with Cursor, but is designed to work with any AI coding tool that provides CSV export functionality.
-
 Track your AI coding expenses, automatically detect which projects you worked on, and analyze costs by project with an intuitive web interface.
 
 ## Features
 
 - **CSV Upload**: Upload billing CSV files from Cursor or other AI coding tools
+- **Import from Downloads**: Scan your Downloads folder for recent usage CSVs and import in one click
 - **Automatic Deduplication**: Only new entries are added to the database
-- **Smart Session Detection**: Automatically groups events into coding sessions based on time gaps (configurable, default 2 hours)
-- **Auto Project Detection**: Automatically detects which project folder corresponds to each coding session by analyzing file modification times in your configured code directory
-- **Project Management**: Create and assign projects to sessions for better organization
-- **Dashboard**: View cost, token usage, and session statistics by project
-- **Visual Analytics**: Charts showing cost distribution across projects
+- **Smart Session Detection**: Groups events into coding sessions (configurable gap, default 2 hours)
+- **Auto Project Detection**: Matches sessions to projects using file modification times in your code directory
+- **Project Groups**: Organize projects into groups (e.g. Work, Product X)
+- **Project Management**: Create, edit, and assign projects; session detail view with per-event project assignment
+- **Settings**: Configure database path, session gap, SCM path, and import lookback from the UI (persisted across restarts)
+- **Dashboard**: Cost, token usage, and session statistics by project and group
+- **Re-detect Sessions**: Re-run session detection with current settings
+- **Standalone macOS app**: Double-clickable `.app` with menu bar and floating window (Open in Browser, Settings, Quit)
 
 ## Setup
 
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Quick start (after clone or download):**
 
-2. **Configure SCM path (optional):**
-   
-   The default SCM path is `~/SCM`. To use a different path:
-   
-   **Option A: Environment variable (recommended)**
-   ```bash
-   export AI_CODING_SCM_PATH="/path/to/your/code"
-   python app.py
-   ```
-   
-   **Option B: Edit config.py**
-   Edit `config.py` and change `DEFAULT_SCM_PATH` to your local path.
-   
-   **Option C: Use the UI**
-   After starting the app, use the path selector in the Projects section to choose your base folder.
-   
-   **Option D: Use a shared database with different paths**
-   If you want to use the same database file across computers but detect projects on each computer's local files:
-   ```bash
-   export AI_CODING_DB_PATH="/path/to/shared/ai_usage.db"
-   export AI_CODING_SCM_PATH="/path/to/local/code"  # Local path on each computer
-   python app.py
-   ```
+```bash
+chmod +x setup.sh
+./setup.sh
+```
 
-3. **Run the application:**
-   ```bash
-   python app.py
-   ```
+This creates a virtual environment, installs dependencies, and on macOS builds the standalone `.app`. To only set up the environment (no app build), run `./setup.sh --dev`.
 
-4. **Access the web interface:**
-   Open your browser and navigate to `http://localhost:5000`
+**Then run the app:**
 
-## Multi-Computer Usage
+- **From source:** `source venv/bin/activate && python app.py`
+- **Standalone (macOS):** `open "dist/AI Coding Usage Tracker.app"`
 
-If you work on multiple computers:
+Open the UI at `http://localhost:5000` (or the port in Settings / `AI_CODING_PORT`).
 
-1. **Same CSV, different local files:**
-   - Upload the same CSV file on each computer
-   - Each computer will detect projects from its own local code directory
-   - The database can be shared (via cloud sync) or kept separate per computer
+**Manual setup (alternative):**
 
-2. **Shared database (optional):**
-   - Place the database file in a cloud-synced folder (Dropbox, iCloud, etc.)
-   - Set `AI_CODING_DB_PATH` to point to the shared database
-   - Each computer will use the same database but detect from its local files
+1. `python3 -m venv venv && source venv/bin/activate`
+2. `pip install -r requirements.txt`
+3. Run: `python app.py` — or on macOS build the .app: `pip install pyinstaller && ./build_standalone.sh` (see [STANDALONE_BUILD.md](STANDALONE_BUILD.md)).
 
-3. **Per-computer configuration:**
-   - Each computer can have its own `config.py` or use environment variables
-   - The SCM path will automatically use the local directory on each machine
+**Configure SCM path (optional):** Default is `~/SCM`. Override via environment variable `AI_CODING_SCM_PATH` or from the app’s Projects section / Settings.
+
+### Database location
+
+- **Default (dev):** `~/Documents/db/ai_usage.db`
+- **Default (standalone .app):** `~/Library/Application Support/AI Coding Accounting/db/ai_usage.db`
+- **Custom:** Set in **Settings → Database path** (e.g. `~/Documents/db/ai_usage.db`). Takes effect after restart. You can also use `AI_CODING_DB_PATH`.
+
+## Syncing the database (e.g. iCloud)
+
+To use the same database across machines or back it up with iCloud:
+
+1. **Choose a synced folder**  
+   Examples: `~/Documents/db` (often included in iCloud Documents), or a folder inside iCloud Drive.
+
+2. **Point the app at it**  
+   - **From source:** Set `AI_CODING_DB_PATH` to the DB path, e.g.  
+     `export AI_CODING_DB_PATH="$HOME/Documents/db/ai_usage.db"`
+   - **From Settings (UI):** Set **Database path** to e.g. `~/Documents/db/ai_usage.db` and click Save. Restart the app.
+
+3. **Create the directory if needed**  
+   e.g. `mkdir -p ~/Documents/db`
+
+4. **Caveats**  
+   - Avoid opening the same SQLite file from two machines at once; close the app on one before opening on another, or use the DB on a single machine at a time.
+   - If you use iCloud, ensure the file is fully synced before opening the app on another device.
 
 ## Usage
 
-### Uploading CSV Files
+### Uploading CSV
 
-1. Download your usage CSV file from Cursor (or other tool)
-2. Click "Select CSV File" and choose your file
-3. Adjust the "Session Gap" if needed (default: 2 hours)
-   - Events within this time gap will be grouped into the same session
-4. Click "Upload & Process"
-5. The system will:
-   - Deduplicate entries (based on date, user, model, tokens, and cost)
-   - Create coding sessions automatically
-   - Show you how many new events were added
+1. Download usage CSV from Cursor (or your tool).
+2. Use **Upload & Process** or **Import from Downloads** (scans `~/Downloads` for recent usage CSVs).
+3. Adjust **Session gap** in the form or in Settings if needed.
 
-### Managing Projects
+### Projects and groups
 
-1. Click "+ New Project" to create a project manually
-2. **Auto-Detect Projects**: Click "🔍 Auto-Detect Projects" to automatically match sessions to projects
-   - The system scans all git repositories in your configured base folder
-   - Matches sessions to projects based on file modification times
-   - Shows confidence scores and file modification counts
-   - You can review suggestions before applying them
-   - Use the path selector to change which folder to scan
-3. Assign sessions to projects using the dropdown in the Sessions table
-4. View project statistics in the Projects section
+- **+ New Project** / **+ New Group**: Create projects and optional groups.
+- **Edit project**: Assign a **Group** (or leave Ungrouped).
+- **Auto-Detect Projects**: Match unassigned sessions to repos in your SCM path; apply suggestions as needed.
+- **Sessions table**: Assign project per session; open **Details** to edit project per event or unlink from session.
+- **Re-detect Sessions**: Re-run session grouping with the current gap setting.
 
-### Auto-Detection Algorithm
+### Settings
 
-The auto-detection feature works by:
-- Scanning all git repositories and directories in your configured base folder
-- Checking file modification times (mtime) within each session's time window (with a 30-minute buffer)
-- Calculating confidence scores based on:
-  - Number of files modified during the session
-  - Files modified very close to session start time (bonus points)
-  - Files modified exactly during the session window
-  - Git commits (if available) as secondary indicators
-- Only suggesting matches with confidence score ≥ 5
-- Creating projects automatically from folder names when applying suggestions
-- Works even if files aren't committed to git
-
-### Understanding Sessions
-
-Sessions are automatically detected by grouping events that occur within a specified time gap (default 2 hours). For example:
-- Event at 10:00 AM
-- Event at 10:30 AM
-- Event at 11:00 AM
-- Event at 2:00 PM (3 hours later)
-
-This would create 2 sessions:
-- Session 1: 10:00 AM - 11:00 AM (3 events)
-- Session 2: 2:00 PM (1 event)
+- **Session gap (hours)**: Time gap used to split events into sessions.
+- **Import from Downloads: look back (hours)**: How far back to look for CSVs in `~/Downloads`.
+- **SCM path**: Base folder for project detection.
+- **Database path**: SQLite file path (persisted; effective after restart).
 
 ## Database
 
-The application uses SQLite which is created automatically on first run. By default, the database is stored at `~/Documents/db/ai_usage.db` (for iCloud sync on macOS). You can customize this with the `AI_CODING_DB_PATH` environment variable.
+SQLite is created automatically. Default locations:
 
-The database contains:
+- Development: `~/Documents/db/ai_usage.db`
+- Standalone .app: `~/Library/Application Support/AI Coding Accounting/db/ai_usage.db`
 
-- **UsageEvent**: Individual usage events from CSV files
-- **CodingSession**: Grouped sessions of related events
-- **Project**: User-created projects for organizing sessions
+Override via Settings or `AI_CODING_DB_PATH`. Config is stored in `~/Library/Application Support/AI Coding Accounting/app_config.json` (database path and similar).
 
-## CSV Format
+Main tables: **UsageEvent**, **CodingSession**, **Project**, **ProjectGroup**, **AppSettings**, **ImportBatch**, **EventArchive**.
 
-The tool expects CSV files with the following columns:
-- Date (ISO format)
-- User
-- Kind
-- Model
-- Max Mode
-- Input (w/ Cache Write)
-- Input (w/o Cache Write)
-- Cache Read
-- Output Tokens
-- Total Tokens
-- Cost
+## CSV format
 
-## About
+Expected columns (and optional **User**): Date (ISO), User, Kind, Model, Max Mode, Input (w/ Cache Write), Input (w/o Cache Write), Cache Read, Output Tokens, Total Tokens, Cost.
 
-This tool was originally built for personal use on macOS with Cursor, but is designed to be generic and work with:
-- **Cursor** (primary use case)
-- **GitHub Copilot** (if CSV export is available)
-- **Other AI coding tools** that provide CSV export functionality
+## Multi-computer
 
-The tool is designed to work on macOS (with iCloud sync support) but should work on Linux and Windows as well with appropriate path configuration.
+- Use a **shared database** in a synced folder (see [Syncing the database](#syncing-the-database-eg-icloud)) and set the same path on each machine.
+- Set **SCM path** per machine (each machine’s local code directory) so project detection uses local paths.
 
-## Future Enhancements
+## Documentation
 
-Potential improvements:
-- Export reports (PDF, CSV)
-- Time-based filtering and date range selection
-- More detailed analytics (cost per hour, token efficiency)
-- Support for multiple users/teams
-- Integration with other AI coding tools (API-based, not just CSV)
-- Automatic project detection based on file patterns or git repos
-- Support for Windows and Linux path conventions
+- [STANDALONE_BUILD.md](STANDALONE_BUILD.md) – Build the macOS `.app` (the binary is not in the repo; follow these steps to build your own)
+- [SERVICE_SETUP.md](SERVICE_SETUP.md) – Run as a macOS launchd service
+- [MULTI_COMPUTER_SETUP.md](MULTI_COMPUTER_SETUP.md) – Shared DB and per-machine config
 
 ## License
 

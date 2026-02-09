@@ -53,6 +53,8 @@ instance/
 # Logs
 *.log
 logs/
+!logs/.gitkeep
+config_debug.log
 
 # Testing
 .pytest_cache/
@@ -64,3 +66,11 @@ htmlcov/
 *.tmp
 *.temp
 *~
+
+# Internal / developer notes (excluded from check-in)
+PRIVACY_CLEANUP.md
+PRE_COMMIT_CHECKLIST.md
+REFACTOR_PLAN.md
+FORCE_PUSH_WARNING.md
+REBASE_INSTRUCTIONS.md
+GITHUB_SETUP.md

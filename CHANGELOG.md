@@ -4,11 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] – 2026-02-09
+
+### Added
+- **Settings UI**: Database path, session gap, SCM path, and Downloads lookback configurable from the app; persisted in `~/Library/Application Support/AI Coding Accounting/app_config.json` (DB path applied on restart).
+- **Project groups**: Create groups, assign projects to groups, filter sessions by group; optional `project_group` table and `project.group_id` (auto-migrated for existing DBs).
+- **Import from Downloads**: Button to scan `~/Downloads` for recent usage/team CSVs and import in one click.
+- **Import history**: List of recent import batches in Settings.
+- **Session detail**: Expand a session to see events, change project per event, or unlink from session; session totals update when events are unlinked.
+- **Re-detect Sessions**: Button to re-run session detection with current gap setting.
+- **Standalone app**: Floating window with Open in Browser, Settings, and Quit; DB path from config file applied on launch.
+- **Optional User column**: CSV import supports files with or without a User column.
+- **Debug**: `GET /api/debug-db` (only when `AI_CODING_DEBUG=true`) and optional config logging when `AI_CODING_DEBUG_CONFIG=1`.
+
 ### Changed
-- **Privacy & Genericization**: Removed all personal information (usernames, specific paths) from codebase
-  - All hardcoded paths replaced with generic examples (`~/SCM`, `~/code`, etc.)
-  - Documentation updated to be user-agnostic
-  - Added note about original use case (personal macOS + Cursor) while keeping it generic
+- **Privacy & genericization**: Plist and install script use placeholder `REPLACE_ME_PROJECT_DIR`; no usernames or personal paths in repo. SERVICE_SETUP and PRIVACY_CLEANUP docs updated.
+- Database path can be set from Settings and is stored outside the DB so it applies on next start.
+- Dashboard stats and project list include group info; projects section shows groups and ungrouped.
+- Session filter by group in the sessions table.
+
+### Fixed
+- Standalone app now uses the database path saved in Settings after restart (launch sets `AI_CODING_DB_PATH` from config before loading app).
+- Schema migration adds `project.group_id` for databases created before project groups (no manual migration needed).
+- Dashboard 500 when `project` table lacked `group_id`; stats endpoint tolerant of missing column and returns error details on failure.
+
+### Documentation
+- README: iCloud/sync section, Settings, project groups, standalone app, generic paths only.
+- README database section: default paths and config file location.
+
+---
+
+## [1.1.1]
+
+### Changed
+- **Privacy & genericization**: Removed all personal information (usernames, specific paths) from codebase; documentation user-agnostic.
 
 ### Added
 - Model information display in sessions table - shows which AI models were used in each session

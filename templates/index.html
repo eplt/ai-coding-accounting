@@ -202,6 +202,35 @@
             font-weight: 600;
         }
         
+        .group-section {
+            margin-bottom: 24px;
+        }
+        .group-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: #f5f5f7;
+            border-radius: 8px;
+        }
+        .group-section-header h3 {
+            margin: 0;
+            font-size: 16px;
+            color: #1d1d1f;
+        }
+        .group-section-header .group-stats {
+            font-size: 13px;
+            color: #666;
+        }
+        .group-section-projects {
+            display: grid;
+            gap: 15px;
+            margin-left: 8px;
+        }
+        
         .sessions-section {
             background: white;
             padding: 30px;
@@ -364,7 +393,9 @@
                     <input type="number" id="gapHours" name="gap_hours" value="2" min="1" max="24" class="gap-input" required>
                 </div>
                 <button type="submit" id="uploadBtn">Upload & Process</button>
+                <button type="button" id="importDownloadsBtn" style="background: #34c759;">Import from Downloads</button>
             </form>
+            <div id="importDownloadsResult" style="margin-top: 12px; font-size: 14px; display: none;"></div>
         </div>
         
         <div class="stats-grid" id="statsGrid">
@@ -398,6 +429,7 @@
                 <h2>Projects</h2>
                 <div style="display: flex; gap: 10px;">
                     <button onclick="detectProjects()" id="detectBtn" style="background: #34c759;">🔍 Auto-Detect Projects</button>
+                    <button onclick="showCreateGroupModal()" style="background: #8e8e93;">+ New Group</button>
                     <button onclick="showCreateProjectModal()">+ New Project</button>
                 </div>
             </div>
@@ -432,10 +464,20 @@
         </div>
         
         <div class="sessions-section">
-            <h2>Coding Sessions</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin: 0;">Coding Sessions</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="sessionGroupFilter" style="font-size: 13px; color: #666;">Filter by group:</label>
+                    <select id="sessionGroupFilter" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
+                        <option value="">All</option>
+                    </select>
+                    <button type="button" id="redetectSessionsBtn" style="background: #666;">Re-detect Sessions</button>
+                </div>
+            </div>
             <table class="sessions-table">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Date</th>
                         <th>Duration</th>
                         <th>Cost</th>
@@ -448,6 +490,32 @@
                 <tbody id="sessionsTableBody">
                 </tbody>
             </table>
+        </div>
+
+        <div class="settings-section" id="settingsSection" style="background: white; padding: 30px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <h2 id="settings">Settings</h2>
+            <div style="max-width: 600px;">
+                <div style="margin-bottom: 16px;">
+                    <label for="settingsSessionGap" style="display: block; font-weight: 500; margin-bottom: 4px;">Session gap (hours)</label>
+                    <input type="number" id="settingsSessionGap" min="1" max="24" value="2" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 80px;">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label for="settingsDownloadsLookback" style="display: block; font-weight: 500; margin-bottom: 4px;">Import from Downloads: look back (hours)</label>
+                    <input type="number" id="settingsDownloadsLookback" min="1" max="168" value="24" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 80px;">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label for="settingsScmPath" style="display: block; font-weight: 500; margin-bottom: 4px;">SCM path (for project detection)</label>
+                    <input type="text" id="settingsScmPath" placeholder="e.g. ~/SCM" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 100%;">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label for="settingsDbPath" style="display: block; font-weight: 500; margin-bottom: 4px;">Database path</label>
+                    <input type="text" id="settingsDbPath" placeholder="e.g. ~/Documents/db/ai_usage.db" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 100%; font-size: 12px;" autocomplete="off">
+                    <small style="display: block; margin-top: 4px; color: #666;">Takes effect after you restart the app.</small>
+                </div>
+                <button type="button" id="saveSettingsBtn">Save Settings</button>
+            </div>
+            <h3 style="margin-top: 24px; margin-bottom: 12px;">Import history</h3>
+            <div id="importBatchesList" style="font-size: 13px; color: #666;">Loading...</div>
         </div>
     </div>
     
@@ -464,9 +532,36 @@
                     <label for="projectDescription">Description (optional)</label>
                     <textarea id="projectDescription" rows="3"></textarea>
                 </div>
+                <div class="form-group">
+                    <label for="projectGroupId">Group (optional)</label>
+                    <select id="projectGroupId" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 100%;">
+                        <option value="">Ungrouped</option>
+                    </select>
+                </div>
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" onclick="hideCreateProjectModal()">Cancel</button>
                     <button type="submit" id="projectSubmitBtn">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Create/Edit Group Modal -->
+    <div class="modal" id="createGroupModal">
+        <div class="modal-content">
+            <h3 id="groupModalTitle">New Group</h3>
+            <form id="createGroupForm">
+                <div class="form-group">
+                    <label for="groupName">Group name</label>
+                    <input type="text" id="groupName" required placeholder="e.g. Work, Product X">
+                </div>
+                <div class="form-group">
+                    <label for="groupDescription">Description (optional)</label>
+                    <textarea id="groupDescription" rows="2" placeholder="e.g. Related repos for X"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="hideCreateGroupModal()">Cancel</button>
+                    <button type="submit" id="groupSubmitBtn">Create</button>
                 </div>
             </form>
         </div>
@@ -477,10 +572,147 @@
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
             loadConfig();
             loadDashboard();
+            loadImportBatches();
             setupEventListeners();
+            document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+            document.getElementById('importDownloadsBtn').addEventListener('click', importFromDownloads);
+            document.getElementById('redetectSessionsBtn').addEventListener('click', redetectSessions);
+            document.getElementById('sessionGroupFilter').addEventListener('change', filterSessionsByGroup);
         });
+        
+        async function filterSessionsByGroup() {
+            const groupId = document.getElementById('sessionGroupFilter').value;
+            const url = groupId ? '/api/sessions?group_id=' + encodeURIComponent(groupId) : '/api/sessions';
+            try {
+                const sessions = await (await fetch(url)).json();
+                updateSessions(sessions, window.lastProjects || []);
+            } catch (e) {
+                console.error('Filter sessions error:', e);
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const s = await res.json();
+                const gapHours = document.getElementById('gapHours');
+                if (gapHours) gapHours.value = s.session_gap_hours || '2';
+                const g = document.getElementById('settingsSessionGap');
+                if (g) g.value = s.session_gap_hours || '2';
+                const d = document.getElementById('settingsDownloadsLookback');
+                if (d) d.value = s.downloads_lookback_hours || '24';
+                const sp = document.getElementById('settingsScmPath');
+                if (sp) sp.value = s.scm_path || '';
+                const dbp = document.getElementById('settingsDbPath');
+                if (dbp) {
+                    dbp.value = s.database_path || '';
+                    dbp.removeAttribute('readonly');
+                    dbp.removeAttribute('disabled');
+                }
+                const scmPathInput = document.getElementById('scmPathInput');
+                if (scmPathInput) scmPathInput.value = s.scm_path || '';
+            } catch (e) {
+                console.error('Error loading settings:', e);
+            }
+        }
+
+        async function saveSettings() {
+            const btn = document.getElementById('saveSettingsBtn');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session_gap_hours: document.getElementById('settingsSessionGap').value,
+                        downloads_lookback_hours: document.getElementById('settingsDownloadsLookback').value,
+                        scm_path: document.getElementById('settingsScmPath').value.trim(),
+                        database_path: document.getElementById('settingsDbPath').value.trim()
+                    })
+                });
+                const data = await res.json();
+                if (data.message) {
+                    showAlert(data.message, 'success');
+                } else {
+                    showAlert('Settings saved.', 'success');
+                }
+                document.getElementById('gapHours').value = document.getElementById('settingsSessionGap').value;
+                loadConfig();
+            } catch (e) {
+                showAlert('Error saving settings: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function loadImportBatches() {
+            const el = document.getElementById('importBatchesList');
+            if (!el) return;
+            try {
+                const res = await fetch('/api/import-batches?limit=20');
+                const batches = await res.json();
+                if (batches.length === 0) {
+                    el.innerHTML = 'No imports yet.';
+                    return;
+                }
+                el.innerHTML = '<table style="width:100%; font-size:12px;"><thead><tr><th>File</th><th>Imported</th><th>New</th><th>Dup</th><th>Sessions</th></tr></thead><tbody>' +
+                    batches.map(b => `<tr><td>${b.file_name}</td><td>${b.imported_at || ''}</td><td>${b.new_events_count}</td><td>${b.duplicate_count}</td><td>${b.sessions_created}</td></tr>`).join('') +
+                    '</tbody></table>';
+            } catch (e) {
+                el.innerHTML = 'Could not load.';
+            }
+        }
+
+        async function importFromDownloads() {
+            const btn = document.getElementById('importDownloadsBtn');
+            const resultDiv = document.getElementById('importDownloadsResult');
+            btn.disabled = true;
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Scanning Downloads folder...';
+            try {
+                const res = await fetch('/api/import-from-downloads', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+                const data = await res.json();
+                if (!res.ok) {
+                    resultDiv.innerHTML = data.error || 'Import failed';
+                    return;
+                }
+                if (!data.batches || data.batches.length === 0) {
+                    resultDiv.textContent = `No CSV files found in Downloads from the last ${data.lookback_hours || 24} hours.`;
+                    return;
+                }
+                const lines = data.batches.map(b => b.error ? `❌ ${b.file}: ${b.error}` : `✅ ${b.file}: ${b.new_events} new, ${b.duplicates} duplicates, ${b.sessions_created} sessions`);
+                resultDiv.innerHTML = lines.join('<br>');
+                loadDashboard();
+                loadImportBatches();
+            } catch (e) {
+                resultDiv.textContent = 'Error: ' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function redetectSessions() {
+            if (!confirm('Re-detect sessions using the current session gap? All existing session assignments will be cleared and recomputed.')) return;
+            const btn = document.getElementById('redetectSessionsBtn');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/sessions/redetect', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert(`Re-detected ${data.sessions_created} sessions.`, 'success');
+                    loadDashboard();
+                } else {
+                    showAlert(data.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showAlert('Error: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
         
         async function loadConfig() {
             try {
@@ -580,6 +812,7 @@
         function setupEventListeners() {
             document.getElementById('uploadForm').addEventListener('submit', handleUpload);
             document.getElementById('createProjectForm').addEventListener('submit', handleCreateProject);
+            document.getElementById('createGroupForm').addEventListener('submit', handleCreateGroup);
         }
         
         async function handleUpload(e) {
@@ -633,10 +866,21 @@
                     fetch('/api/projects'),
                     fetch('/api/sessions')
                 ]);
-                
+                if (!statsResponse.ok) {
+                    console.error('Dashboard stats failed:', statsResponse.status, await statsResponse.text());
+                    showAlert('Failed to load stats: ' + statsResponse.status, 'error');
+                    return;
+                }
                 const stats = await statsResponse.json();
                 const projects = await projectsResponse.json();
                 const sessions = await sessionsResponse.json();
+                if (!stats.overall) {
+                    console.error('Unexpected stats shape:', stats);
+                    showAlert('Invalid stats from server', 'error');
+                    return;
+                }
+                window.lastDashboardStats = stats;
+                window.lastProjects = projects;
                 
                 updateStats(stats);
                 updateProjects(projects, stats);
@@ -644,6 +888,7 @@
                 updateChart(stats);
             } catch (error) {
                 console.error('Error loading dashboard:', error);
+                showAlert('Error loading dashboard: ' + error.message, 'error');
             }
         }
         
@@ -652,14 +897,28 @@
             document.getElementById('totalSessions').textContent = stats.overall.total_sessions;
             document.getElementById('totalEvents').textContent = stats.overall.total_events;
             document.getElementById('totalTokens').textContent = stats.overall.total_tokens.toLocaleString();
+            const filterEl = document.getElementById('sessionGroupFilter');
+            if (filterEl && stats.groups) {
+                const cur = filterEl.value;
+                filterEl.innerHTML = '<option value="">All</option>';
+                stats.groups.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = g.name;
+                    filterEl.appendChild(opt);
+                });
+                filterEl.value = cur;
+            }
         }
         
         function updateProjects(projects, stats) {
             const projectList = document.getElementById('projectList');
             projectList.innerHTML = '';
+            const projectsWithActivity = (stats.projects || []).filter(p => p.sessions > 0 || p.event_count > 0);
+            const groups = stats.groups || [];
             
-            // Add unassigned
-            if (stats.unassigned.cost > 0 || stats.unassigned.sessions > 0) {
+            // 1) Unassigned
+            if (stats.unassigned && (stats.unassigned.cost > 0 || stats.unassigned.sessions > 0)) {
                 const unassignedItem = createProjectItem({
                     id: null,
                     name: 'Unassigned',
@@ -671,13 +930,55 @@
                 projectList.appendChild(unassignedItem);
             }
             
-            // Add projects (only those with sessions/events)
-            stats.projects
-                .filter(p => p.sessions > 0 || p.event_count > 0)  // Filter empty projects
-                .forEach(project => {
-                    const item = createProjectItem(project, true);
-                    projectList.appendChild(item);
+            // 2) Group sections (each group with its projects)
+            groups.forEach(group => {
+                const groupProjects = projectsWithActivity.filter(p => p.group_id === group.id);
+                const section = document.createElement('div');
+                section.className = 'group-section';
+                section.innerHTML = `
+                    <div class="group-section-header">
+                        <h3>${escapeHtml(group.name)}</h3>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="group-stats">$${group.cost.toFixed(2)} · ${group.sessions} sessions</span>
+                            <button type="button" onclick="editGroup(${group.id})" style="padding: 4px 8px; background: #007aff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">Edit</button>
+                            <button type="button" onclick="deleteGroup(${group.id})" style="padding: 4px 8px; background: #ff3b30; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">Delete</button>
+                        </div>
+                    </div>
+                    <div class="group-section-projects" id="group-projects-${group.id}"></div>
+                `;
+                const container = section.querySelector('.group-section-projects');
+                groupProjects.forEach(project => {
+                    container.appendChild(createProjectItem(project, true));
                 });
+                projectList.appendChild(section);
+            });
+            
+            // 3) Ungrouped projects (no group_id)
+            const ungrouped = projectsWithActivity.filter(p => !p.group_id);
+            if (ungrouped.length > 0) {
+                const section = document.createElement('div');
+                section.className = 'group-section';
+                const ungroupedCost = ungrouped.reduce((s, p) => s + p.cost, 0);
+                const ungroupedSessions = ungrouped.reduce((s, p) => s + p.sessions, 0);
+                section.innerHTML = `
+                    <div class="group-section-header">
+                        <h3>Ungrouped</h3>
+                        <span class="group-stats">$${ungroupedCost.toFixed(2)} · ${ungroupedSessions} sessions</span>
+                    </div>
+                    <div class="group-section-projects" id="group-projects-ungrouped"></div>
+                `;
+                const container = section.querySelector('.group-section-projects');
+                ungrouped.forEach(project => {
+                    container.appendChild(createProjectItem(project, true));
+                });
+                projectList.appendChild(section);
+            }
+        }
+        
+        function escapeHtml(s) {
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
         }
         
         function createProjectItem(project, canEdit) {
@@ -721,14 +1022,11 @@
         function updateSessions(sessions, projects) {
             const tbody = document.getElementById('sessionsTableBody');
             tbody.innerHTML = '';
-            
             sessions.forEach(session => {
                 const tr = document.createElement('tr');
-                // Backend now sends dates in local timezone (naive ISO string)
-                // JavaScript's Date will interpret it as local time
+                tr.dataset.sessionId = session.id;
                 const date = new Date(session.start_time);
                 const duration = session.duration_hours.toFixed(1);
-                
                 const projectSelect = document.createElement('select');
                 projectSelect.className = 'project-select';
                 projectSelect.innerHTML = '<option value="">Unassigned</option>';
@@ -740,8 +1038,14 @@
                     projectSelect.appendChild(option);
                 });
                 projectSelect.addEventListener('change', (e) => assignSessionToProject(session.id, e.target.value));
-                
+                const detailsBtn = document.createElement('button');
+                detailsBtn.type = 'button';
+                detailsBtn.textContent = 'Details';
+                detailsBtn.className = 'details-btn';
+                detailsBtn.style.cssText = 'padding: 4px 10px; font-size: 12px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer;';
+                detailsBtn.addEventListener('click', () => toggleSessionDetails(session.id, tr, detailsBtn, projects));
                 tr.innerHTML = `
+                    <td></td>
                     <td>${date.toLocaleString()}</td>
                     <td>${duration}h</td>
                     <td>$${session.total_cost.toFixed(2)}</td>
@@ -750,9 +1054,74 @@
                     <td><small style="color: #666;">${session.models || 'N/A'}</small></td>
                     <td></td>
                 `;
+                tr.querySelector('td:first-child').appendChild(detailsBtn);
                 tr.querySelector('td:nth-last-child(1)').appendChild(projectSelect);
                 tbody.appendChild(tr);
             });
+        }
+
+        async function toggleSessionDetails(sessionId, row, btn, projects) {
+            const next = row.nextElementSibling;
+            if (next && next.classList && next.classList.contains('session-detail-row')) {
+                next.remove();
+                btn.textContent = 'Details';
+                return;
+            }
+            btn.textContent = 'Loading...';
+            try {
+                const res = await fetch(`/api/sessions/${sessionId}/events`);
+                const data = await res.json();
+                const detailRow = document.createElement('tr');
+                detailRow.className = 'session-detail-row';
+                detailRow.innerHTML = '<td colspan="8" style="padding: 12px; background: #f8f9fa; border-top: none;">';
+                const cell = detailRow.querySelector('td');
+                let projectOptions = '<option value="">Unassigned</option>';
+                (data.projects || []).forEach(p => { projectOptions += `<option value="${p.id}">${p.name}</option>`; });
+                let table = `
+                    <table class="sessions-table" style="margin: 0; font-size: 13px;">
+                    <thead><tr><th>Date</th><th>User</th><th>Model</th><th>Cost</th><th>Tokens</th><th>Project</th><th></th></tr></thead>
+                    <tbody>`;
+                (data.events || []).forEach(ev => {
+                    let sel = `<select class="event-project-select" data-event-id="${ev.id}">${projectOptions}</select>`;
+                    if (ev.project_id) sel = sel.replace(`value="${ev.project_id}"`, `value="${ev.project_id}" selected`);
+                    table += `<tr>
+                        <td>${ev.date ? new Date(ev.date).toLocaleString() : ''}</td>
+                        <td>${ev.user || ''}</td>
+                        <td>${ev.model || ''}</td>
+                        <td>$${(ev.cost || 0).toFixed(2)}</td>
+                        <td>${(ev.total_tokens || 0).toLocaleString()}</td>
+                        <td>${sel}</td>
+                        <td><button type="button" class="unlink-event-btn" data-event-id="${ev.id}" style="padding: 2px 8px; font-size: 11px;">Unlink</button></td>
+                    </tr>`;
+                });
+                table += '</tbody></table>';
+                cell.innerHTML = table;
+                cell.querySelectorAll('.event-project-select').forEach(sel => {
+                    sel.addEventListener('change', async () => {
+                        await fetch(`/api/events/${sel.dataset.eventId}`, {
+                            method: 'PATCH',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ project_id: sel.value ? parseInt(sel.value) : null })
+                        });
+                        loadDashboard();
+                    });
+                });
+                cell.querySelectorAll('.unlink-event-btn').forEach(b => {
+                    b.addEventListener('click', async () => {
+                        await fetch(`/api/events/${b.dataset.eventId}`, {
+                            method: 'PATCH',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ session_id: null })
+                        });
+                        loadDashboard();
+                    });
+                });
+                row.after(detailRow);
+                btn.textContent = 'Hide';
+            } catch (e) {
+                showAlert('Error loading session details: ' + e.message, 'error');
+                btn.textContent = 'Details';
+            }
         }
         
         async function assignSessionToProject(sessionId, projectId) {
@@ -833,6 +1202,15 @@
         }
         
         function showCreateProjectModal() {
+            const sel = document.getElementById('projectGroupId');
+            sel.innerHTML = '<option value="">Ungrouped</option>';
+            const groups = (window.lastDashboardStats && window.lastDashboardStats.groups) || [];
+            groups.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.textContent = g.name;
+                sel.appendChild(opt);
+            });
             document.getElementById('createProjectModal').classList.add('active');
             document.getElementById('createProjectForm').dataset.mode = 'create';
             document.getElementById('createProjectForm').dataset.projectId = '';
@@ -851,16 +1229,23 @@
             try {
                 const response = await fetch(`/api/projects/${projectId}`);
                 if (!response.ok) throw new Error('Failed to load project');
-                
                 const project = await response.json();
-                
+                const sel = document.getElementById('projectGroupId');
+                sel.innerHTML = '<option value="">Ungrouped</option>';
+                const groups = (window.lastDashboardStats && window.lastDashboardStats.groups) || [];
+                groups.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = g.name;
+                    sel.appendChild(opt);
+                });
                 document.getElementById('projectName').value = project.name;
                 document.getElementById('projectDescription').value = project.description || '';
+                document.getElementById('projectGroupId').value = project.group_id || '';
                 document.getElementById('createProjectForm').dataset.mode = 'edit';
                 document.getElementById('createProjectForm').dataset.projectId = projectId;
                 document.getElementById('projectModalTitle').textContent = 'Edit Project';
                 document.getElementById('projectSubmitBtn').textContent = 'Update';
-                
                 document.getElementById('createProjectModal').classList.add('active');
             } catch (error) {
                 showAlert('Error loading project: ' + error.message, 'error');
@@ -889,29 +1274,116 @@
             }
         }
         
+        function showCreateGroupModal() {
+            document.getElementById('groupModalTitle').textContent = 'New Group';
+            document.getElementById('groupSubmitBtn').textContent = 'Create';
+            document.getElementById('createGroupForm').dataset.mode = 'create';
+            document.getElementById('createGroupForm').dataset.groupId = '';
+            document.getElementById('createGroupForm').reset();
+            document.getElementById('createGroupModal').classList.add('active');
+        }
+        
+        function hideCreateGroupModal() {
+            document.getElementById('createGroupModal').classList.remove('active');
+        }
+        
+        async function editGroup(groupId) {
+            try {
+                const response = await fetch(`/api/project-groups/${groupId}`);
+                if (!response.ok) throw new Error('Failed to load group');
+                const group = await response.json();
+                document.getElementById('groupName').value = group.name;
+                document.getElementById('groupDescription').value = group.description || '';
+                document.getElementById('groupModalTitle').textContent = 'Edit Group';
+                document.getElementById('groupSubmitBtn').textContent = 'Update';
+                document.getElementById('createGroupForm').dataset.mode = 'edit';
+                document.getElementById('createGroupForm').dataset.groupId = groupId;
+                document.getElementById('createGroupModal').classList.add('active');
+            } catch (error) {
+                showAlert('Error loading group: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteGroup(groupId) {
+            if (!confirm('Delete this group? Projects in it will become ungrouped.')) return;
+            try {
+                const response = await fetch(`/api/project-groups/${groupId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    showAlert('Group deleted', 'success');
+                    loadDashboard();
+                } else {
+                    const data = await response.json();
+                    showAlert(data.error || 'Failed to delete group', 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function handleCreateGroup(e) {
+            e.preventDefault();
+            const form = e.target;
+            const mode = form.dataset.mode || 'create';
+            const groupId = form.dataset.groupId;
+            const name = document.getElementById('groupName').value.trim();
+            const description = document.getElementById('groupDescription').value.trim();
+            if (!name) {
+                showAlert('Group name is required', 'error');
+                return;
+            }
+            try {
+                let response;
+                if (mode === 'edit' && groupId) {
+                    response = await fetch(`/api/project-groups/${groupId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ name, description })
+                    });
+                } else {
+                    response = await fetch('/api/project-groups', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ name, description })
+                    });
+                }
+                if (response.ok) {
+                    hideCreateGroupModal();
+                    showAlert(mode === 'edit' ? 'Group updated' : 'Group created', 'success');
+                    loadDashboard();
+                } else {
+                    const data = await response.json();
+                    showAlert(data.error || 'Failed to save group', 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
         async function handleCreateProject(e) {
             e.preventDefault();
             const form = e.target;
             const mode = form.dataset.mode || 'create';
             const projectId = form.dataset.projectId;
-            const name = document.getElementById('projectName').value;
-            const description = document.getElementById('projectDescription').value;
+            const name = document.getElementById('projectName').value.trim();
+            const description = document.getElementById('projectDescription').value.trim();
+            const groupIdEl = document.getElementById('projectGroupId');
+            const groupId = groupIdEl && groupIdEl.value ? parseInt(groupIdEl.value, 10) : null;
+            const payload = { name, description };
+            if (groupId !== null) payload.group_id = groupId;
             
             try {
                 let response;
                 if (mode === 'edit' && projectId) {
-                    // Update existing project
                     response = await fetch(`/api/projects/${projectId}`, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({name, description})
+                        body: JSON.stringify({...payload, group_id: groupId})
                     });
                 } else {
-                    // Create new project
                     response = await fetch('/api/projects', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({name, description})
+                        body: JSON.stringify(payload)
                     });
                 }
                 
