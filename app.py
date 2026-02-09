@@ -352,7 +352,8 @@ def upload_csv():
 def import_from_downloads():
     """Scan ~/Downloads for usage-events-*.csv and team-usage-events-*.csv, import files from last N hours."""
     try:
-        lookback_hours = int(request.json.get('lookback_hours') if request.is_json and request.json else None) or int(get_setting('downloads_lookback_hours') or '24')
+        raw = (request.json or {}).get('lookback_hours') if request.is_json else None
+        lookback_hours = int(raw) if raw is not None else int(get_setting('downloads_lookback_hours') or '24')
         downloads = os.path.expanduser('~/Downloads')
         if not os.path.isdir(downloads):
             return jsonify({'error': 'Downloads folder not found', 'batches': []}), 400
