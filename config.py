@@ -133,4 +133,5 @@ DATABASE_PATH = get_database_path()
 
 # Other settings
 DEBUG = os.environ.get('AI_CODING_DEBUG', 'False').lower() == 'true'
-PORT = int(os.environ.get('AI_CODING_PORT', 5000))
+# Use port 5001 to avoid conflict with macOS Control Center (which uses 5000)
+PORT = int(os.environ.get('AI_CODING_PORT', 5001))

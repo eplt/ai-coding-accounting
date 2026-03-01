@@ -135,6 +135,18 @@ class EventArchive(db.Model):
     __table_args__ = (db.Index('ix_event_archive_batch_line', 'batch_id', 'line_index'),)
 
 
+# App Version and Database Migrations
+APP_VERSION = "1.3.0"  # Bump this when adding new migrations
+
+
+class DatabaseMigration(db.Model):
+    """Track which database migrations have been applied."""
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.String(50), nullable=False, unique=True)
+    applied_at = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.Text, nullable=True)
+
+
 def get_setting(key: str, default: str = None) -> str:
     """Get a setting value from AppSettings. Returns default if not set."""
     row = AppSettings.query.filter_by(key=key).first()
@@ -162,6 +174,102 @@ def _seed_default_settings():
         if AppSettings.query.filter_by(key=k).first() is None:
             db.session.add(AppSettings(key=k, value=v))
     db.session.commit()
+
+
+def _run_database_migrations():
+    """Run pending database migrations on startup.
+    
+    Migrations are versioned and only run once. Add new migrations to the
+    MIGRATIONS dict with version as key and function as value.
+    """
+    try:
+        # Create migration table if it doesn't exist
+        db.create_all()
+        
+        # Get list of already applied migrations
+        applied = {m.version for m in DatabaseMigration.query.all()}
+        
+        # Define migrations: version -> (function, description)
+        MIGRATIONS = {
+            "1.1.0": (_migrate_1_1_0_recalc_hashes, "Recalculate unique_hash for existing UsageEvent records"),
+        }
+        
+        # Run pending migrations in version order
+        for version in sorted(MIGRATIONS.keys()):
+            if version not in applied:
+                migrate_func, description = MIGRATIONS[version]
+                print(f"Running database migration: {version} - {description}")
+                migrate_func()
+                # Record migration
+                db.session.add(DatabaseMigration(version=version, description=description))
+                db.session.commit()
+                print(f"Migration {version} completed successfully")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database migration failed: {e}")
+        raise
+
+
+def _migrate_1_1_0_recalc_hashes():
+    """Migration 1.1.0: Recalculate unique_hash for all existing UsageEvent records.
+
+    The old hash included User and Model fields, causing duplicates when importing
+    CSVs without the User column. The new hash uses only timestamp and token counts.
+
+    This migration recalculates hashes for all existing events based on their
+    current token data. Events with the same timestamp+tokens will be detected
+    as duplicates and removed.
+    """
+    from sqlalchemy import text
+
+    events = UsageEvent.query.all()
+    updated = 0
+    duplicates_removed = 0
+    seen_hashes = {}
+
+    for event in events:
+        # Build new hash from event data (reconstruct what CSV row would look like)
+        new_hash = _calculate_hash_from_event(event)
+
+        # Check for duplicates (same hash = same event)
+        if new_hash in seen_hashes:
+            # This event is a duplicate of an existing one - delete it
+            db.session.delete(event)
+            duplicates_removed += 1
+        else:
+            # Update hash
+            event.unique_hash = new_hash
+            seen_hashes[new_hash] = event.id
+            updated += 1
+
+    db.session.commit()
+    print(f"  Recalculated hashes: {updated} events updated, {duplicates_removed} duplicates removed")
+    
+    # Also clean up any orphaned sessions (sessions with no events)
+    orphaned_sessions = CodingSession.query.outerjoin(UsageEvent).filter(
+        UsageEvent.id.is_(None)
+    ).all()
+    for session in orphaned_sessions:
+        db.session.delete(session)
+    db.session.commit()
+    print(f"  Cleaned up {len(orphaned_sessions)} orphaned sessions")
+
+
+def _calculate_hash_from_event(event):
+    """Calculate new-format hash from a UsageEvent record.
+    
+    Reconstructs the same hash that would be generated from a CSV row
+    with the same timestamp and token values. Normalizes datetime to
+    naive local time to match CSV import behavior.
+    """
+    import hashlib
+    # Normalize datetime to naive local time (matches to_local_timezone behavior)
+    dt = event.date
+    if dt.tzinfo is not None:
+        dt = dt.astimezone().replace(tzinfo=None)
+    # Match the format in create_unique_hash()
+    key = f"{dt.isoformat()}_{event.input_with_cache}_{event.cache_read}_{event.output_tokens}_{event.total_tokens}"
+    return hashlib.sha256(key.encode()).hexdigest()
 
 
 def _user_from_row(row):
@@ -232,10 +340,20 @@ def _process_csv_rows(rows, file_name, file_path=None, gap_hours=None):
 
 
 def create_unique_hash(row):
-    """Create a unique hash for deduplication based on key fields. User is optional."""
+    """Create a unique hash for deduplication based on timestamp and token counts.
+    
+    The hash is based on:
+    - Date/timestamp (the unique identifier for when the event occurred)
+    - Input tokens (with cache write)
+    - Cache read tokens
+    - Output tokens
+    - Total tokens
+    
+    This ensures that events with the same timestamp and token counts are considered
+    duplicates, regardless of whether the CSV includes a User column or which model was used.
+    """
     import hashlib
-    user = _user_from_row(row)
-    key = f"{row.get('Date','')}_{user}_{row.get('Model','')}_{row.get('Total Tokens','')}_{row.get('Cost','')}"
+    key = f"{row.get('Date','')}_{row.get('Input (w/ Cache Write)', '0')}_{row.get('Cache Read', '0')}_{row.get('Output Tokens', '0')}_{row.get('Total Tokens', '0')}"
     return hashlib.sha256(key.encode()).hexdigest()
 
 def parse_date(date_str):
@@ -406,6 +524,89 @@ def get_import_batches():
         'duplicate_count': b.duplicate_count,
         'sessions_created': b.sessions_created,
     } for b in batches])
+
+
+@app.route('/api/import-batches/<int:batch_id>', methods=['DELETE'])
+def delete_import_batch(batch_id):
+    """Delete an import batch and all events that were created from it.
+
+    This allows re-importing a CSV file if it was imported with incorrect settings
+    or if you want to re-run session detection with different parameters.
+    
+    Events are matched by their data (date + token counts) rather than hash to
+    handle cases where the hash format has changed between versions.
+    """
+    batch = ImportBatch.query.get(batch_id)
+    if not batch:
+        return jsonify({'error': 'Batch not found'}), 404
+
+    events_deleted = 0
+    sessions_to_delete = set()
+
+    # Get all archive rows for this batch
+    archive_rows = EventArchive.query.filter_by(batch_id=batch_id).all()
+
+    # For each archive row, find matching events by data (not hash)
+    for archive_row in archive_rows:
+        try:
+            row_data = json.loads(archive_row.raw_json) if archive_row.raw_json else {}
+            if not row_data or 'Date' not in row_data:
+                continue
+            
+            # Parse the date from CSV row
+            from datetime import datetime
+            date_str = row_data.get('Date', '')
+            try:
+                parsed_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                # Convert to local timezone (naive) to match how events are stored
+                if parsed_date.tzinfo:
+                    parsed_date = parsed_date.astimezone().replace(tzinfo=None)
+            except Exception:
+                continue
+            
+            # Get token values from row
+            input_cache = int(row_data.get('Input (w/ Cache Write)', 0) or 0)
+            cache_read = int(row_data.get('Cache Read', 0) or 0)
+            output_tokens = int(row_data.get('Output Tokens', 0) or 0)
+            total_tokens = int(row_data.get('Total Tokens', 0) or 0)
+            
+            # Find ALL matching events by date and token counts (this catches duplicates)
+            matching_events = UsageEvent.query.filter(
+                UsageEvent.date == parsed_date,
+                UsageEvent.input_with_cache == input_cache,
+                UsageEvent.cache_read == cache_read,
+                UsageEvent.output_tokens == output_tokens,
+                UsageEvent.total_tokens == total_tokens
+            ).all()
+            
+            for event in matching_events:
+                if event.session_id:
+                    sessions_to_delete.add(event.session_id)
+                db.session.delete(event)
+                events_deleted += 1
+                
+        except Exception as e:
+            app.logger.error(f'Error processing archive row: {e}')
+            continue
+
+    # Delete sessions that were associated with deleted events
+    sessions_deleted = 0
+    for session_id in sessions_to_delete:
+        session = CodingSession.query.get(session_id)
+        if session:
+            db.session.delete(session)
+            sessions_deleted += 1
+
+    # Delete the batch (archive rows cascade delete via foreign key)
+    db.session.delete(batch)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'events_deleted': events_deleted,
+        'sessions_deleted': sessions_deleted,
+        'batch_id': batch_id,
+    })
 
 
 @app.route('/api/projects', methods=['GET'])
@@ -1156,4 +1357,5 @@ def get_session_files(session_id):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, port=5000)
+        _run_database_migrations()
+    app.run(debug=True, port=config.PORT)

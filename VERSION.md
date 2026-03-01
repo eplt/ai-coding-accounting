@@ -1,6 +1,14 @@
 # Version Information
 
-## Current Version: 1.2.0
+## Current Version: 1.3.0
+
+### v1.3.0 (2026-03-01)
+- **Hash-based deduplication fix**: Unique hash now based on timestamp + token counts (not User/Model), preventing duplicates when importing CSVs without User column
+- **Database migration system**: Versioned migrations that run automatically on startup; migration 1.1.0 recalculates hashes for existing data
+- **Import batch deletion**: Delete import batches from Settings → Import history; removes all associated events and sessions
+- **Improved quit functionality**: Floating window Quit button kills ALL running instances; terminal command `quit-ai-usage` available
+- **Port changed to 5001**: Avoids conflict with macOS Control Center (which uses port 5000)
+- **Orphaned session cleanup**: Automatically removes sessions with no events after batch deletion
 
 ### v1.2.0 (2026-02-09)
 - **Settings UI**: Database path, session gap, SCM path, Downloads lookback; persisted across restarts.

@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] – 2026-03-01
+
+### Added
+- **Database migration framework**: Versioned migrations with `DatabaseMigration` table; migrations run automatically on app startup (both source and standalone .app)
+- **Import batch deletion**: Delete button in Settings → Import history; removes all events and sessions from a batch, allowing re-import
+- **Quit script**: `quit-ai-usage` terminal command to kill all running instances
+- **Floating window improvements**: Shows server URL, larger buttons with icons, Cmd+Q keyboard shortcut
+
+### Changed
+- **Deduplication hash format**: Changed from `Date + User + Model + TotalTokens + Cost` to `Date + InputTokens + CacheRead + OutputTokens + TotalTokens`
+  - Fixes duplicates when importing CSVs without User column
+  - Hash now based purely on timestamp and token counts
+- **Default port changed to 5001**: Avoids conflict with macOS Control Center (uses port 5000)
+- **Delete function matches by data, not hash**: Uses date + token counts to find events, handles hash format changes between versions
+- **Migration 1.1.0**: Automatically recalculates hashes for all existing UsageEvent records and removes duplicates
+
+### Fixed
+- **Duplicate events on re-import**: CSV imports without User column no longer create duplicates
+- **Orphaned sessions**: Sessions with no events are automatically cleaned up after batch deletion or migration
+- **Quit button now kills all instances**: Previously only quit the current instance, leaving others running
+- **Hash mismatch on delete**: Delete function now matches events by data fields instead of hash, handling format changes
+
+### Technical
+- Added `APP_VERSION = "1.3.0"` and `DatabaseMigration` model in `app.py`
+- Added `_run_database_migrations()` function with extensible MIGRATIONS dict
+- Added `_calculate_hash_from_event()` for consistent hash calculation from DB records
+- Updated `create_unique_hash()` to use token-based fields
+- Updated `delete_import_batch()` endpoint to match by data fields and delete all duplicates
+- Changed default `PORT` in `config.py` from 5000 to 5001
+- Updated `launch.py` quit handler to use subprocess for killing all instances
+
 ## [1.2.0] – 2026-02-09
 
 ### Added

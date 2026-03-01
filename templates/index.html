@@ -658,11 +658,30 @@
                     el.innerHTML = 'No imports yet.';
                     return;
                 }
-                el.innerHTML = '<table style="width:100%; font-size:12px;"><thead><tr><th>File</th><th>Imported</th><th>New</th><th>Dup</th><th>Sessions</th></tr></thead><tbody>' +
-                    batches.map(b => `<tr><td>${b.file_name}</td><td>${b.imported_at || ''}</td><td>${b.new_events_count}</td><td>${b.duplicate_count}</td><td>${b.sessions_created}</td></tr>`).join('') +
+                el.innerHTML = '<table style="width:100%; font-size:12px;"><thead><tr><th>File</th><th>Imported</th><th>New</th><th>Dup</th><th>Sessions</th><th>Action</th></tr></thead><tbody>' +
+                    batches.map(b => `<tr><td>${b.file_name}</td><td>${b.imported_at || ''}</td><td>${b.new_events_count}</td><td>${b.duplicate_count}</td><td>${b.sessions_created}</td><td><button onclick="deleteImportBatch(${b.id})" style="background:#ff3b30;padding:4px 8px;font-size:11px;border-radius:4px;border:none;color:white;cursor:pointer;">Delete</button></td></tr>`).join('') +
                     '</tbody></table>';
             } catch (e) {
                 el.innerHTML = 'Could not load.';
+            }
+        }
+
+        async function deleteImportBatch(batchId) {
+            if (!confirm('Delete this import batch and all its events? This cannot be undone. You can re-import the CSV file afterward.')) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/import-batches/${batchId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (!res.ok) {
+                    showAlert(data.error || 'Delete failed', 'error');
+                    return;
+                }
+                showAlert(`Deleted ${data.events_deleted} events and ${data.sessions_deleted} sessions from batch ${batchId}`, 'success');
+                loadDashboard();
+                loadImportBatches();
+            } catch (e) {
+                showAlert('Delete failed: ' + e.message, 'error');
             }
         }
 

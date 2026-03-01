@@ -77,6 +77,8 @@ def _get_helper_button_handler_class():
         return _get_helper_button_handler_class._klass
     import AppKit
     import objc
+    import subprocess
+    
     class _HelperButtonHandler(AppKit.NSObject):
         def init(self):
             self = objc.super(_HelperButtonHandler, self).init()
@@ -90,7 +92,19 @@ def _get_helper_button_handler_class():
             if getattr(self, "_url", None):
                 webbrowser.open(self._url + "#settings")
         def quitApp_(self, sender):
-            rumps.quit_application()
+            # Kill ALL instances of the app, not just this one
+            try:
+                # Kill Python processes running app.py
+                subprocess.run(["pkill", "-9", "-f", "python.*app.py"], capture_output=True)
+                # Kill standalone tracker processes
+                subprocess.run(["pkill", "-9", "-f", "ai-usage-tracker"], capture_output=True)
+                # Kill processes on our ports
+                subprocess.run(["sh", "-c", "lsof -ti :5001 | xargs kill -9 2>/dev/null"], capture_output=True)
+                subprocess.run(["sh", "-c", "lsof -ti :5000 | xargs kill -9 2>/dev/null"], capture_output=True)
+                # Also quit via rumps
+                rumps.quit_application()
+            except Exception:
+                rumps.quit_application()
     _get_helper_button_handler_class._klass = _HelperButtonHandler
     return _HelperButtonHandler
 
@@ -153,30 +167,41 @@ def _create_helper_window(url: str):
 
         # Use NSWindow so it behaves like a normal window; style: titled, closable, miniaturizable
         style = 1 | 2 | 4
-        frame = AppKit.NSMakeRect(150, 300, 300, 158)
+        frame = AppKit.NSMakeRect(150, 400, 320, 180)
         window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             frame, style, AppKit.NSBackingStoreBuffered, False
         )
-        window.setTitle_("AI Usage Tracker")
+        window.setTitle_("AI Usage Tracker - Running")
         window.setLevel_(getattr(AppKit, "NSFloatingWindowLevel", 3))
+        window.setCanBecomeVisibleWithoutLogin_(True)  # Show even on login
         content = window.contentView()
 
-        open_btn = AppKit.NSButton.alloc().initWithFrame_(AppKit.NSMakeRect(30, 108, 240, 32))
-        open_btn.setTitle_("Open in Browser")
+        # Status label
+        status_label = AppKit.NSTextField.alloc().initWithFrame_(AppKit.NSMakeRect(30, 138, 260, 22))
+        status_label.setStringValue_("Server running at http://127.0.0.1:5001")
+        status_label.setEditable_(False)
+        status_label.setBordered_(False)
+        status_label.setBackgroundColor_(AppKit.NSColor.clearColor())
+        status_label.setFont_(AppKit.NSFont.systemFontOfSize_(11))
+        content.addSubview_(status_label)
+
+        open_btn = AppKit.NSButton.alloc().initWithFrame_(AppKit.NSMakeRect(30, 98, 260, 32))
+        open_btn.setTitle_("🌐 Open in Browser")
         open_btn.setButtonType_(AppKit.NSMomentaryPushInButton)
         open_btn.setBezelStyle_(AppKit.NSRoundedBezelStyle)
         content.addSubview_(open_btn)
 
-        settings_btn = AppKit.NSButton.alloc().initWithFrame_(AppKit.NSMakeRect(30, 68, 240, 32))
-        settings_btn.setTitle_("Settings")
+        settings_btn = AppKit.NSButton.alloc().initWithFrame_(AppKit.NSMakeRect(30, 58, 260, 32))
+        settings_btn.setTitle_("⚙️ Settings")
         settings_btn.setButtonType_(AppKit.NSMomentaryPushInButton)
         settings_btn.setBezelStyle_(AppKit.NSRoundedBezelStyle)
         content.addSubview_(settings_btn)
 
-        quit_btn = AppKit.NSButton.alloc().initWithFrame_(AppKit.NSMakeRect(30, 18, 240, 32))
-        quit_btn.setTitle_("Quit")
+        quit_btn = AppKit.NSButton.alloc().initWithFrame_(AppKit.NSMakeRect(30, 18, 260, 32))
+        quit_btn.setTitle_("❌ Quit AI Usage Tracker")
         quit_btn.setButtonType_(AppKit.NSMomentaryPushInButton)
         quit_btn.setBezelStyle_(AppKit.NSRoundedBezelStyle)
+        quit_btn.setKeyEquivalent_("q")  # Cmd+Q shortcut
         content.addSubview_(quit_btn)
 
         HandlerClass = _get_helper_button_handler_class()
@@ -192,6 +217,7 @@ def _create_helper_window(url: str):
         # Keep refs so window and handler are not GC'd; don't set attributes on NSWindow (PyObjC proxy)
         _helper_window_refs.append((window, handler))
         window.makeKeyAndOrderFront_(None)
+        window.orderFrontRegardless()  # Bring to front
         AppKit.NSApp.activateIgnoringOtherApps_(True)
         return window
     except Exception as e:
@@ -211,6 +237,14 @@ def main() -> None:
     try:
         with app.app_context():
             db.create_all()
+            # Run database migrations (versioned, idempotent)
+            try:
+                from app import _run_database_migrations
+                _run_database_migrations()
+                _debug_log("[main] database migrations completed")
+            except Exception as _e:
+                _debug_log(f"[main] migration failed: {_e}")
+                raise
             # Schema migration: add project.group_id if missing (e.g. DB created before project groups)
             try:
                 from sqlalchemy import text
